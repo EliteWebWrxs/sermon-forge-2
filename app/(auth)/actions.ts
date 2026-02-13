@@ -3,7 +3,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
 import { z } from "zod";
 
 const signUpSchema = z
@@ -38,18 +37,12 @@ export async function signUp(formData: FormData) {
     );
   }
 
-  // Get the current origin from headers
-  const headersList = await headers();
-  const host = headersList.get("host");
-  const protocol = process.env.NODE_ENV === "development" ? "http" : "https";
-  const origin = `${protocol}://${host}`;
-
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signUp({
     email: result.data.email,
     password: result.data.password,
     options: {
-      emailRedirectTo: `${origin}/auth/callback`,
+      emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
     },
   });
   console.log("🚀 ~ error:", error);
