@@ -150,6 +150,10 @@ CREATE POLICY "Users can view their own metadata"
   ON users_metadata FOR SELECT
   USING (auth.uid() = user_id);
 
+CREATE POLICY "Users can insert their own metadata"
+  ON users_metadata FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
 CREATE POLICY "Users can update their own metadata"
   ON users_metadata FOR UPDATE
   USING (auth.uid() = user_id);
