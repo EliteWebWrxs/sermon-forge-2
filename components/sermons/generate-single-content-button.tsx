@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import { toastSuccess, toastError, toastInfo, handleApiError } from "@/lib/toast"
 import type { ContentType } from "@/types"
 
 interface GenerateSingleContentButtonProps {
@@ -29,8 +30,11 @@ export function GenerateSingleContentButton({
   const router = useRouter()
   const [isGenerating, setIsGenerating] = useState(false)
 
+  const label = CONTENT_TYPE_LABELS[contentType]
+
   async function handleGenerate() {
     setIsGenerating(true)
+    toastInfo.generating(label)
 
     try {
       const response = await fetch(`/api/sermons/${sermonId}/generate`, {
@@ -43,17 +47,20 @@ export function GenerateSingleContentButton({
         }),
       })
 
-      const data = await response.json()
-
       if (!response.ok) {
-        throw new Error(data.error || "Failed to generate content")
+        await handleApiError(response, `Failed to generate ${label}`)
+        return
       }
 
-      // Refresh the page to show new content
+      toastSuccess.contentGenerated(label)
       router.refresh()
     } catch (error) {
       console.error("Generation error:", error)
-      alert(error instanceof Error ? error.message : "Failed to generate content")
+      if (error instanceof TypeError && error.message.includes("fetch")) {
+        toastError.networkError()
+      } else {
+        toastError.generationFailed(label)
+      }
     } finally {
       setIsGenerating(false)
     }
@@ -70,8 +77,8 @@ export function GenerateSingleContentButton({
       {isGenerating
         ? "Generating..."
         : hasContent
-        ? `Regenerate ${CONTENT_TYPE_LABELS[contentType]}`
-        : `Generate ${CONTENT_TYPE_LABELS[contentType]}`}
+        ? `Regenerate ${label}`
+        : `Generate ${label}`}
     </Button>
   )
 }

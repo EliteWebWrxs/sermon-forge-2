@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
+import { toastSuccess, toastError, toastInfo, handleApiError } from "@/lib/toast"
 
 interface ExportSermonNotesDropdownProps {
   sermonId: string
@@ -19,13 +20,14 @@ export function ExportSermonNotesDropdown({
   const handleExport = async (type: "pdf" | "docx" | "pptx") => {
     setIsExporting(true)
     setExportingType(type)
+    toastInfo.exporting()
 
     try {
       const response = await fetch(`/api/sermons/${sermonId}/export/${type}`)
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || `Failed to export ${type.toUpperCase()}`)
+        await handleApiError(response, `Failed to export ${type.toUpperCase()}`)
+        return
       }
 
       // Get the blob from response
@@ -41,9 +43,15 @@ export function ExportSermonNotesDropdown({
       link.click()
       document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
+
+      toastSuccess.exportReady(type.toUpperCase())
     } catch (error) {
       console.error(`Error exporting ${type}:`, error)
-      alert(error instanceof Error ? error.message : `Failed to export ${type.toUpperCase()}`)
+      if (error instanceof TypeError && error.message.includes("fetch")) {
+        toastError.networkError()
+      } else {
+        toastError.exportFailed()
+      }
     } finally {
       setIsExporting(false)
       setExportingType(null)

@@ -23,5 +23,7 @@ export type {
   DiscussionGuideContent,
   SocialMediaContent,
   KidsVersionContent,
+  NotificationPreferences,
+  ChurchSize,
   Json,
 } from "./database"

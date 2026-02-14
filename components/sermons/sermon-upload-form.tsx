@@ -14,6 +14,8 @@ import { FileUpload } from "./file-upload"
 import { uploadSermonFile, getFileType } from "@/lib/storage"
 import { extractPDFText } from "@/app/(dashboard)/sermons/pdf-actions"
 import { createSermonAction } from "@/app/(dashboard)/sermons/actions"
+import { toastSuccess, toastError, toastInfo } from "@/lib/toast"
+import { ProgressBar, ProcessingStatusCard } from "@/components/progress-indicator"
 import type { InputType } from "@/types"
 
 const uploadSchema = z.object({
@@ -27,6 +29,16 @@ interface SermonUploadFormProps {
   userId: string
 }
 
+type UploadStep = "idle" | "uploading" | "extracting" | "creating" | "transcribing"
+
+const STEP_MESSAGES: Record<UploadStep, { title: string; description: string; time?: string }> = {
+  idle: { title: "", description: "" },
+  uploading: { title: "Uploading file", description: "Securely uploading your file to our servers", time: "depends on file size" },
+  extracting: { title: "Extracting text", description: "Reading and extracting text from your PDF" },
+  creating: { title: "Creating sermon", description: "Setting up your sermon record" },
+  transcribing: { title: "Transcription started", description: "Your audio is being transcribed. This may take 2-3 minutes.", time: "2-3 minutes" },
+}
+
 export function SermonUploadForm({ userId }: SermonUploadFormProps) {
   const router = useRouter()
   const [ uploadMethod, setUploadMethod ] = useState<
@@ -36,6 +48,7 @@ export function SermonUploadForm({ userId }: SermonUploadFormProps) {
   const [ pastedText, setPastedText ] = useState("")
   const [ uploading, setUploading ] = useState(false)
   const [ uploadProgress, setUploadProgress ] = useState(0)
+  const [ uploadStep, setUploadStep ] = useState<UploadStep>("idle")
   const [ error, setError ] = useState<string | null>(null)
 
   const {
@@ -52,6 +65,7 @@ export function SermonUploadForm({ userId }: SermonUploadFormProps) {
   const onSubmit = async (data: UploadFormValues) => {
     setError(null)
     setUploading(true)
+    setUploadStep("uploading")
 
     try {
       let input_type: InputType | undefined
@@ -61,8 +75,9 @@ export function SermonUploadForm({ userId }: SermonUploadFormProps) {
       // Handle different upload methods
       if (uploadMethod === "file") {
         if (!selectedFile) {
-          setError("Please select a file")
+          toastError.generic("Please select a file")
           setUploading(false)
+          setUploadStep("idle")
           return
         }
 
@@ -72,28 +87,39 @@ export function SermonUploadForm({ userId }: SermonUploadFormProps) {
         setUploadProgress(10)
 
         // Upload file to Supabase Storage
-        const { url } = await uploadSermonFile(userId, selectedFile, tempId)
+        try {
+          const { url } = await uploadSermonFile(userId, selectedFile, tempId)
+          fileUrl = url
+        } catch (uploadErr) {
+          console.error("File upload error:", uploadErr)
+          const message = uploadErr instanceof Error ? uploadErr.message : "Failed to upload file"
+          if (message.includes("size") || message.includes("large")) {
+            toastError.fileTooLarge("100MB")
+          } else {
+            toastError.uploadFailed()
+          }
+          setUploading(false)
+          setUploadStep("idle")
+          return
+        }
 
         setUploadProgress(50)
+        setUploadStep("creating")
 
         const fileType = getFileType(selectedFile)
         input_type = fileType
 
-        if (fileType === "audio") {
-          fileUrl = url
-        } else if (fileType === "video") {
-          fileUrl = url
-        }
-
         setUploadProgress(100)
       } else if (uploadMethod === "pdf") {
         if (!selectedFile) {
-          setError("Please select a PDF file")
+          toastError.generic("Please select a PDF file")
           setUploading(false)
+          setUploadStep("idle")
           return
         }
 
         setUploadProgress(10)
+        setUploadStep("extracting")
 
         // Generate a temporary sermon ID for upload path
         const tempId = crypto.randomUUID()
@@ -106,38 +132,56 @@ export function SermonUploadForm({ userId }: SermonUploadFormProps) {
           await extractPDFText(formData)
 
         if (extractError || !extractedText) {
-          setError(extractError || "Could not extract text from PDF")
+          const errorMsg = extractError || "Could not extract text from PDF"
+          setError(errorMsg)
+          toastError.generic(errorMsg)
           setUploading(false)
+          setUploadStep("idle")
           return
         }
 
         setUploadProgress(40)
+        setUploadStep("uploading")
 
         // Upload PDF to Supabase Storage
-        const { url } = await uploadSermonFile(userId, selectedFile, tempId)
+        try {
+          const { url } = await uploadSermonFile(userId, selectedFile, tempId)
+          fileUrl = url
+        } catch (uploadErr) {
+          console.error("PDF upload error:", uploadErr)
+          toastError.uploadFailed()
+          setUploading(false)
+          setUploadStep("idle")
+          return
+        }
 
         setUploadProgress(80)
+        setUploadStep("creating")
 
         input_type = "pdf"
-        fileUrl = url
         transcript = extractedText
 
         setUploadProgress(100)
       } else if (uploadMethod === "text") {
         if (!pastedText || pastedText.length < 500) {
-          setError("Please paste at least 500 characters of text")
+          const msg = "Please paste at least 500 characters of text"
+          setError(msg)
+          toastError.generic(msg)
           setUploading(false)
+          setUploadStep("idle")
           return
         }
 
+        setUploadStep("creating")
         input_type = "text_paste"
         transcript = pastedText
       }
 
       // Validate input_type is set
       if (!input_type) {
-        setError("Please select an upload method")
+        toastError.generic("Please select an upload method")
         setUploading(false)
+        setUploadStep("idle")
         return
       }
 
@@ -152,8 +196,13 @@ export function SermonUploadForm({ userId }: SermonUploadFormProps) {
         transcript,
       })
 
+      // Success!
+      toastSuccess.sermonUploaded()
+
       // Trigger transcription for audio/video files (don't wait for it)
       if (input_type === "audio" || input_type === "video") {
+        setUploadStep("transcribing")
+        toastInfo.transcribing()
         fetch(`/api/sermons/${result.id}/transcribe`, {
           method: "POST",
         }).catch((error) => {
@@ -165,9 +214,19 @@ export function SermonUploadForm({ userId }: SermonUploadFormProps) {
       router.push(`/sermons/${result.id}`)
     } catch (err) {
       console.error("Upload error:", err)
-      setError(
-        err instanceof Error ? err.message : "Failed to upload sermon"
-      )
+      const errorMessage = err instanceof Error ? err.message : "Failed to upload sermon"
+
+      // Check for specific error types
+      if (errorMessage.includes("limit")) {
+        toastError.limitReached()
+      } else if (errorMessage.includes("network") || errorMessage.includes("fetch")) {
+        toastError.networkError()
+      } else {
+        toastError.uploadFailed()
+      }
+
+      setError(errorMessage)
+      setUploadStep("idle")
       setUploading(false)
     }
   }
@@ -268,24 +327,22 @@ export function SermonUploadForm({ userId }: SermonUploadFormProps) {
       ) }
 
       {/* Upload Progress */ }
-      { uploading && uploadProgress > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex items-center gap-3">
-            <div className="flex-1">
-              <div className="flex items-center justify-between mb-1">
-                <p className="text-sm font-medium text-blue-900">
-                  Uploading...
-                </p>
-                <p className="text-sm text-blue-700">{ uploadProgress }%</p>
-              </div>
-              <div className="w-full bg-blue-200 rounded-full h-2">
-                <div
-                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                  style={ { width: `${uploadProgress}%` } }
-                />
-              </div>
-            </div>
-          </div>
+      { uploading && uploadStep !== "idle" && (
+        <ProcessingStatusCard
+          title={ STEP_MESSAGES[uploadStep].title }
+          description={ STEP_MESSAGES[uploadStep].description }
+          estimatedTime={ STEP_MESSAGES[uploadStep].time }
+        />
+      ) }
+
+      {/* Progress Bar for file uploads */ }
+      { uploading && uploadProgress > 0 && uploadStep === "uploading" && (
+        <div className="px-4">
+          <ProgressBar
+            progress={ uploadProgress }
+            label="Upload progress"
+            size="md"
+          />
         </div>
       ) }
 

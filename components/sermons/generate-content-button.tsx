@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import { toastSuccess, toastError, toastInfo, handleApiError } from "@/lib/toast"
 
 interface GenerateContentButtonProps {
   sermonId: string
@@ -15,11 +16,10 @@ export function GenerateContentButton({
 }: GenerateContentButtonProps) {
   const router = useRouter()
   const [isGenerating, setIsGenerating] = useState(false)
-  const [progress, setProgress] = useState<string>("")
 
   async function handleGenerate() {
     setIsGenerating(true)
-    setProgress("Generating all content...")
+    toastInfo.generating("all content")
 
     try {
       const response = await fetch(`/api/sermons/${sermonId}/generate`, {
@@ -28,37 +28,32 @@ export function GenerateContentButton({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          content_type: "all", // Generate all content types
+          content_type: "all",
         }),
       })
 
-      const data = await response.json()
-
       if (!response.ok) {
-        throw new Error(data.error || "Failed to generate content")
+        await handleApiError(response, "Failed to generate content")
+        return
       }
 
-      setProgress("Content generated successfully!")
-
-      // Refresh the page to show new content
+      toastSuccess.allContentGenerated()
       router.refresh()
     } catch (error) {
       console.error("Generation error:", error)
-      alert(error instanceof Error ? error.message : "Failed to generate content")
+      if (error instanceof TypeError && error.message.includes("fetch")) {
+        toastError.networkError()
+      } else {
+        toastError.generationFailed()
+      }
     } finally {
       setIsGenerating(false)
-      setProgress("")
     }
   }
 
   return (
-    <div className="flex flex-col items-end gap-2">
-      <Button onClick={handleGenerate} loading={isGenerating} disabled={isGenerating}>
-        {isGenerating ? "Generating..." : hasContent ? "Regenerate All" : "Generate All Content"}
-      </Button>
-      {progress && (
-        <p className="text-xs text-slate-500">{progress}</p>
-      )}
-    </div>
+    <Button onClick={handleGenerate} loading={isGenerating} disabled={isGenerating}>
+      {isGenerating ? "Generating..." : hasContent ? "Regenerate All" : "Generate All Content"}
+    </Button>
   )
 }

@@ -8,6 +8,16 @@ export type Json =
 
 export type InputType = "audio" | "video" | "pdf" | "youtube" | "text_paste"
 
+export interface NotificationPreferences {
+  processing_complete: boolean
+  payment_issues: boolean
+  usage_warnings: boolean
+  weekly_digest: boolean
+  product_updates: boolean
+}
+
+export type ChurchSize = "small" | "medium" | "large" | "mega"
+
 export type SermonStatus =
   | "draft"
   | "uploading"
@@ -47,6 +57,25 @@ export interface Database {
           font_preference: string | null
           sermons_processed_count: number
           created_at: string
+          // Profile fields
+          display_name: string | null
+          profile_picture_url: string | null
+          timezone: string | null
+          // Church fields
+          church_website: string | null
+          church_size: string | null
+          denomination: string | null
+          // Notification preferences
+          notification_preferences: NotificationPreferences | null
+          // Account settings
+          two_factor_enabled: boolean
+          data_export_requested_at: string | null
+          account_deletion_requested_at: string | null
+          // Onboarding fields
+          onboarding_completed: boolean
+          onboarding_step: number
+          onboarding_completed_at: string | null
+          product_tour_completed: boolean
         }
         Insert: {
           user_id: string
@@ -57,6 +86,20 @@ export interface Database {
           font_preference?: string | null
           sermons_processed_count?: number
           created_at?: string
+          display_name?: string | null
+          profile_picture_url?: string | null
+          timezone?: string | null
+          church_website?: string | null
+          church_size?: string | null
+          denomination?: string | null
+          notification_preferences?: NotificationPreferences | null
+          two_factor_enabled?: boolean
+          data_export_requested_at?: string | null
+          account_deletion_requested_at?: string | null
+          onboarding_completed?: boolean
+          onboarding_step?: number
+          onboarding_completed_at?: string | null
+          product_tour_completed?: boolean
         }
         Update: {
           user_id?: string
@@ -67,6 +110,20 @@ export interface Database {
           font_preference?: string | null
           sermons_processed_count?: number
           created_at?: string
+          display_name?: string | null
+          profile_picture_url?: string | null
+          timezone?: string | null
+          church_website?: string | null
+          church_size?: string | null
+          denomination?: string | null
+          notification_preferences?: NotificationPreferences | null
+          two_factor_enabled?: boolean
+          data_export_requested_at?: string | null
+          account_deletion_requested_at?: string | null
+          onboarding_completed?: boolean
+          onboarding_step?: number
+          onboarding_completed_at?: string | null
+          product_tour_completed?: boolean
         }
       }
       sermons: {

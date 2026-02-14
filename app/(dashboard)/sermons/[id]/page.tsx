@@ -38,40 +38,46 @@ export default async function SermonPage({ params }: Props) {
   return (
     <>
       {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex-1">
-            <div className="flex items-center gap-3 mb-2">
-              <Link
-                href="/sermons"
-                className="text-sm text-slate-500 hover:text-slate-700"
-              >
-                ← Back to Sermons
-              </Link>
-            </div>
-            <h1 className="text-3xl font-bold text-slate-900 mb-2">
+      <div className="mb-6 sm:mb-8">
+        {/* Back link */}
+        <Link
+          href="/sermons"
+          className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700 mb-3 sm:mb-4 py-1 -ml-1 px-1 rounded active:bg-slate-100"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+          Back to Sermons
+        </Link>
+
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-2 break-words">
               {sermon.title}
             </h1>
-            <div className="flex items-center gap-4 text-sm text-slate-500">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-sm text-slate-500">
               <span>{formattedDate}</span>
               <StatusBadge status={sermon.status} />
             </div>
           </div>
-          <SermonPageClient
-            sermonId={id}
-            hasContent={hasContent}
-            hasTranscript={!!sermon.transcript}
-            hasAudio={hasAudio}
-          />
+          <div className="flex-shrink-0">
+            <SermonPageClient
+              sermonId={id}
+              hasContent={hasContent}
+              hasTranscript={!!sermon.transcript}
+              hasAudio={hasAudio}
+            />
+          </div>
         </div>
       </div>
 
       {/* Processing Status */}
       <ProcessingStatus sermonId={id} initialStatus={sermon.status} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Column - Transcript */}
-        <div className="lg:col-span-4">
+      {/* Content Grid - Stacked on mobile, side-by-side on desktop */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
+        {/* Transcript - Shows second on mobile (using order), first column on desktop */}
+        <div className="lg:col-span-4 order-2 lg:order-1">
           {sermon.transcript ? (
             <TranscriptViewer transcript={sermon.transcript} />
           ) : (
@@ -107,8 +113,8 @@ export default async function SermonPage({ params }: Props) {
           )}
         </div>
 
-        {/* Right Column - Generated Content */}
-        <div className="lg:col-span-8">
+        {/* Generated Content - Shows first on mobile (using order), second column on desktop */}
+        <div className="lg:col-span-8 order-1 lg:order-2">
           <SermonContentTabs
             sermonId={id}
             sermonTitle={sermon.title}

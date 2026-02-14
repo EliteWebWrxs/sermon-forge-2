@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
+import { toastSuccess, toastError, handleApiError } from "@/lib/toast"
 
 interface BrandingFormProps {
   initialData: {
@@ -41,13 +42,13 @@ export function BrandingForm({ initialData }: BrandingFormProps) {
     // Validate file type (PNG, JPG, WebP, GIF, SVG)
     const validTypes = ["image/png", "image/jpeg", "image/webp", "image/gif", "image/svg+xml"]
     if (!validTypes.includes(file.type)) {
-      setMessage({ type: "error", text: "Please upload a PNG, JPG, WebP, GIF, or SVG file" })
+      toastError.invalidFileType("PNG, JPG, WebP, GIF, or SVG")
       return
     }
 
     // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      setMessage({ type: "error", text: "Logo must be smaller than 5MB" })
+      toastError.fileTooLarge("5MB")
       return
     }
 
@@ -64,18 +65,20 @@ export function BrandingForm({ initialData }: BrandingFormProps) {
       })
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || "Failed to upload logo")
+        await handleApiError(response, "Failed to upload logo")
+        return
       }
 
       const { url } = await response.json()
       setFormData((prev) => ({ ...prev, churchLogoUrl: url }))
-      setMessage({ type: "success", text: "Logo uploaded successfully" })
+      toastSuccess.brandingSaved()
     } catch (error) {
-      setMessage({
-        type: "error",
-        text: error instanceof Error ? error.message : "Failed to upload logo",
-      })
+      console.error("Logo upload error:", error)
+      if (error instanceof TypeError && error.message.includes("fetch")) {
+        toastError.networkError()
+      } else {
+        toastError.generic("Failed to upload logo")
+      }
     } finally {
       setIsUploadingLogo(false)
     }
@@ -98,12 +101,19 @@ export function BrandingForm({ initialData }: BrandingFormProps) {
       })
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || "Failed to save settings")
+        await handleApiError(response, "Failed to save settings")
+        return
       }
 
+      toastSuccess.brandingSaved()
       setMessage({ type: "success", text: "Branding settings saved successfully" })
     } catch (error) {
+      console.error("Branding save error:", error)
+      if (error instanceof TypeError && error.message.includes("fetch")) {
+        toastError.networkError()
+      } else {
+        toastError.generic("Failed to save settings")
+      }
       setMessage({
         type: "error",
         text: error instanceof Error ? error.message : "Failed to save settings",

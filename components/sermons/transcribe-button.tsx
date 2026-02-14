@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import { toastSuccess, toastError, toastInfo, handleApiError } from "@/lib/toast"
 
 interface TranscribeButtonProps {
   sermonId: string
@@ -20,30 +21,32 @@ export function TranscribeButton({
 
   const handleTranscribe = async () => {
     if (!hasAudio) {
-      alert("No audio or video file to transcribe")
+      toastError.generic("No audio or video file to transcribe")
       return
     }
 
     setIsTranscribing(true)
+    toastInfo.transcribing()
 
     try {
       const response = await fetch(`/api/sermons/${sermonId}/transcribe`, {
         method: "POST",
       })
 
-      const data = await response.json()
-
       if (!response.ok) {
-        throw new Error(data.error || "Transcription failed")
+        await handleApiError(response, "Transcription failed")
+        return
       }
 
-      // Refresh the page to show the new transcript
+      toastSuccess.transcriptionComplete()
       router.refresh()
     } catch (error) {
       console.error("Transcription error:", error)
-      alert(
-        error instanceof Error ? error.message : "Failed to transcribe audio"
-      )
+      if (error instanceof TypeError && error.message.includes("fetch")) {
+        toastError.networkError()
+      } else {
+        toastError.transcriptionFailed()
+      }
     } finally {
       setIsTranscribing(false)
     }

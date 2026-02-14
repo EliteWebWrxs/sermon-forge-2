@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { DropdownMenu, DropdownMenuItem } from "@/components/ui/dropdown-menu"
+import { toastSuccess, toastError, toastInfo, handleApiError } from "@/lib/toast"
 
 interface ExportDiscussionGuideDropdownProps {
   sermonId: string
@@ -13,11 +14,14 @@ export function ExportDiscussionGuideDropdown({ sermonId, sermonTitle }: ExportD
 
   const handleExport = async (type: "pdf" | "docx") => {
     setIsExporting(true)
+    toastInfo.exporting()
+
     try {
       const response = await fetch(`/api/sermons/${sermonId}/export/discussion-guide/${type}`)
 
       if (!response.ok) {
-        throw new Error("Export failed")
+        await handleApiError(response, "Failed to export discussion guide")
+        return
       }
 
       // Get the blob from response
@@ -32,9 +36,15 @@ export function ExportDiscussionGuideDropdown({ sermonId, sermonTitle }: ExportD
       link.click()
       document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
+
+      toastSuccess.exportReady(type.toUpperCase())
     } catch (error) {
       console.error("Export error:", error)
-      alert("Failed to export discussion guide. Please try again.")
+      if (error instanceof TypeError && error.message.includes("fetch")) {
+        toastError.networkError()
+      } else {
+        toastError.exportFailed()
+      }
     } finally {
       setIsExporting(false)
     }

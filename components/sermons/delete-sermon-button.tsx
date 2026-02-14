@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import { toastSuccess, toastError, handleApiError } from "@/lib/toast"
 
 interface DeleteSermonButtonProps {
   sermonId: string
@@ -25,14 +26,21 @@ export function DeleteSermonButton({
       })
 
       if (!response.ok) {
-        throw new Error("Failed to delete sermon")
+        await handleApiError(response, "Failed to delete sermon")
+        return
       }
 
+      toastSuccess.sermonDeleted()
+      router.push("/sermons")
       router.refresh()
       setShowConfirm(false)
     } catch (error) {
       console.error("Error deleting sermon:", error)
-      alert("Failed to delete sermon. Please try again.")
+      if (error instanceof TypeError && error.message.includes("fetch")) {
+        toastError.networkError()
+      } else {
+        toastError.generic("Failed to delete sermon. Please try again.")
+      }
     } finally {
       setIsDeleting(false)
     }

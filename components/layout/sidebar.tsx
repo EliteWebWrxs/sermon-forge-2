@@ -6,7 +6,7 @@ export async function Sidebar() {
   const user = await getCurrentUser()
 
   return (
-    <aside className="flex flex-col w-64 min-h-screen bg-slate-900 text-slate-100">
+    <aside className="flex flex-col w-64 h-screen bg-slate-900 text-slate-100">
       {/* Logo */}
       <div className="flex items-center gap-2 px-6 py-5 border-b border-slate-700">
         <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center">

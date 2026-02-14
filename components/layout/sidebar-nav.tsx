@@ -7,6 +7,7 @@ const navItems = [
   {
     label: "Dashboard",
     href: "/dashboard",
+    tourId: "dashboard",
     icon: (
       <svg
         className="w-5 h-5"
@@ -26,6 +27,7 @@ const navItems = [
   {
     label: "My Sermons",
     href: "/sermons",
+    tourId: "sermons-list",
     icon: (
       <svg
         className="w-5 h-5"
@@ -45,6 +47,7 @@ const navItems = [
   {
     label: "New Sermon",
     href: "/sermons/new",
+    tourId: "upload-sermon",
     icon: (
       <svg
         className="w-5 h-5"
@@ -64,6 +67,7 @@ const navItems = [
   {
     label: "Settings",
     href: "/settings/branding",
+    tourId: "settings",
     icon: (
       <svg
         className="w-5 h-5"
@@ -102,6 +106,7 @@ export function SidebarNav() {
           <Link
             key={item.href}
             href={item.href}
+            data-tour={item.tourId}
             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
               isActive
                 ? "bg-blue-600 text-white"

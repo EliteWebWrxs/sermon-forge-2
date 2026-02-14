@@ -1,8 +1,8 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { requireAuth } from "@/lib/auth";
 import { createSermon } from "@/lib/db/sermons";
+import { canProcessSermon } from "@/lib/subscriptions/check-limits";
 import type { InputType } from "@/types";
 
 interface CreateSermonInput {
@@ -18,6 +18,12 @@ interface CreateSermonInput {
 
 export async function createSermonAction(input: CreateSermonInput) {
   const user = await requireAuth();
+
+  // Check subscription limits before creating sermon
+  const limitCheck = await canProcessSermon(user.id);
+  if (!limitCheck.allowed) {
+    throw new Error(limitCheck.message || "Monthly sermon limit reached. Please upgrade your plan.");
+  }
 
   // All new sermons start as "draft"
   // Status changes to processing/transcribing/generating when user triggers it
