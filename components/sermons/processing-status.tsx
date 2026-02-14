@@ -22,15 +22,16 @@ export function ProcessingStatus({
   initialStatus,
 }: ProcessingStatusProps) {
   const [status, setStatus] = useState(initialStatus)
+  const [pollCount, setPollCount] = useState(0)
   const router = useRouter()
 
-  // Poll for status updates when processing
+  // Only poll when actively processing (not for viewing completed sermons)
+  const isProcessing = ["uploading", "processing", "transcribing", "generating"].includes(status)
+  const maxPolls = 120 // Stop after ~10 minutes (120 * 5 seconds)
+
   useEffect(() => {
-    if (
-      status === "complete" ||
-      status === "error" ||
-      !["uploading", "processing", "transcribing", "generating"].includes(status)
-    ) {
+    // Don't poll if not processing, or if we've exceeded max polls
+    if (!isProcessing || pollCount >= maxPolls) {
       return
     }
 
@@ -40,19 +41,21 @@ export function ProcessingStatus({
         if (response.ok) {
           const data = await response.json()
           setStatus(data.status)
+          setPollCount((prev) => prev + 1)
 
           // Refresh the page when complete to show new content
-          if (data.status === "complete") {
+          if (data.status === "complete" || data.status === "error") {
+            clearInterval(interval)
             router.refresh()
           }
         }
       } catch (error) {
         console.error("Failed to fetch status:", error)
       }
-    }, 3000) // Poll every 3 seconds
+    }, 5000) // Poll every 5 seconds (reduced from 3)
 
     return () => clearInterval(interval)
-  }, [sermonId, status, router])
+  }, [sermonId, isProcessing, pollCount, router])
 
   // Don't show if complete
   if (status === "complete") {
