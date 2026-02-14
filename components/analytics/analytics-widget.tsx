@@ -91,9 +91,10 @@ export function AnalyticsWidget() {
   if (!data) return null
 
   // Format chart data with readable dates
+  // Add T12:00:00 to avoid timezone shifting when parsing date strings
   const chartData = data.dailyActivity.map((day) => ({
     ...day,
-    date: new Date(day.date).toLocaleDateString("en-US", {
+    date: new Date(`${day.date}T12:00:00`).toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
     }),

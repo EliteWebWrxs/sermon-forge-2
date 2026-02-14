@@ -72,6 +72,7 @@ export async function GET(request: NextRequest) {
     >()
 
     for (const event of events || []) {
+      // Extract date in YYYY-MM-DD format (UTC)
       const date = new Date(event.created_at).toISOString().split("T")[0]
 
       // Initialize daily entry if needed
