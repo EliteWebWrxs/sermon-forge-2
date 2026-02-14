@@ -9,6 +9,7 @@ export type Json =
 export type InputType = "audio" | "video" | "pdf" | "youtube" | "text_paste"
 
 export type SermonStatus =
+  | "draft"
   | "uploading"
   | "processing"
   | "transcribing"

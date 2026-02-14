@@ -19,20 +19,10 @@ interface CreateSermonInput {
 export async function createSermonAction(input: CreateSermonInput) {
   const user = await requireAuth();
 
-  // Determine initial status based on input type
-  let status: "uploading" | "processing" | "transcribing" = "uploading";
-
-  if (input.input_type === "text_paste" || input.input_type === "pdf") {
-    // Skip transcription if we already have text
-    status = "processing";
-  } else if (
-    input.input_type === "audio" ||
-    input.input_type === "video" ||
-    input.input_type === "youtube"
-  ) {
-    // Need transcription for these
-    status = "transcribing";
-  }
+  // All new sermons start as "draft"
+  // Status changes to processing/transcribing/generating when user triggers it
+  // Status becomes "complete" only after content is generated
+  const status = "draft";
 
   try {
     const sermon = await createSermon({
