@@ -54,9 +54,9 @@ export const processSermon = inngest.createFunction(
       return data
     })
 
-    // Track sermon created
+    // Track sermon created (use service client for background job)
     await step.run("track-creation", async () => {
-      await trackSermonCreated(userId, sermonId, sermon.input_type)
+      await trackSermonCreated(userId, sermonId, sermon.input_type, true)
     })
 
     // Step 2: Transcribe if needed
@@ -106,13 +106,14 @@ export const processSermon = inngest.createFunction(
     })
 
     // Generate all content types in parallel using step.run for each
+    // Use service client (true) since we're in a background job
     const [sermonNotes, devotional, discussionGuide, socialMedia] = await Promise.all([
       step.run("generate-sermon-notes", async () => {
         try {
           const raw = await generateSermonNotes(transcript!)
           const content = convertToSermonNotesContent(raw)
-          await saveGeneratedContent(sermonId, "sermon_notes", content)
-          await trackContentGenerated(userId, sermonId, "sermon_notes")
+          await saveGeneratedContent(sermonId, "sermon_notes", content, true)
+          await trackContentGenerated(userId, sermonId, "sermon_notes", true)
           return { success: true, content }
         } catch (error) {
           console.error("Sermon notes generation failed:", error)
@@ -122,8 +123,8 @@ export const processSermon = inngest.createFunction(
       step.run("generate-devotional", async () => {
         try {
           const content = await generateDevotional(transcript!, sermon.title)
-          await saveGeneratedContent(sermonId, "devotional", content)
-          await trackContentGenerated(userId, sermonId, "devotional")
+          await saveGeneratedContent(sermonId, "devotional", content, true)
+          await trackContentGenerated(userId, sermonId, "devotional", true)
           return { success: true, content }
         } catch (error) {
           console.error("Devotional generation failed:", error)
@@ -133,8 +134,8 @@ export const processSermon = inngest.createFunction(
       step.run("generate-discussion-guide", async () => {
         try {
           const content = await generateDiscussionGuide(transcript!, sermon.title)
-          await saveGeneratedContent(sermonId, "discussion_guide", content)
-          await trackContentGenerated(userId, sermonId, "discussion_guide")
+          await saveGeneratedContent(sermonId, "discussion_guide", content, true)
+          await trackContentGenerated(userId, sermonId, "discussion_guide", true)
           return { success: true, content }
         } catch (error) {
           console.error("Discussion guide generation failed:", error)
@@ -144,8 +145,8 @@ export const processSermon = inngest.createFunction(
       step.run("generate-social-media", async () => {
         try {
           const content = await generateSocialMedia(transcript!, sermon.title)
-          await saveGeneratedContent(sermonId, "social_media", content)
-          await trackContentGenerated(userId, sermonId, "social_media")
+          await saveGeneratedContent(sermonId, "social_media", content, true)
+          await trackContentGenerated(userId, sermonId, "social_media", true)
           return { success: true, content }
         } catch (error) {
           console.error("Social media generation failed:", error)
@@ -168,8 +169,13 @@ export const processSermon = inngest.createFunction(
       data: {
         sermonId,
         userId,
-        userEmail: "", // Will be fetched in the email function
         sermonTitle: sermon.title,
+        contentGenerated: {
+          sermonNotes: sermonNotes.success,
+          devotional: devotional.success,
+          discussionGuide: discussionGuide.success,
+          socialMedia: socialMedia.success,
+        },
       },
     })
 
@@ -315,8 +321,8 @@ export const generateContent = inngest.createFunction(
               throw new Error(`Unknown content type: ${type}`)
           }
 
-          await saveGeneratedContent(sermonId, type as ContentType, content as Record<string, unknown>)
-          await trackContentGenerated(userId, sermonId, type as ContentType)
+          await saveGeneratedContent(sermonId, type as ContentType, content as Record<string, unknown>, true)
+          await trackContentGenerated(userId, sermonId, type as ContentType, true)
           return true
         } catch (error) {
           console.error(`Failed to generate ${type}:`, error)
@@ -350,7 +356,17 @@ export const sendCompletionEmail = inngest.createFunction(
   },
   { event: "sermon/send-completion-email" },
   async ({ event, step }) => {
-    const { userId, sermonTitle } = event.data
+    const { sermonId, userId, sermonTitle, contentGenerated } = event.data as {
+      sermonId: string
+      userId: string
+      sermonTitle: string
+      contentGenerated: {
+        sermonNotes: boolean
+        devotional: boolean
+        discussionGuide: boolean
+        socialMedia: boolean
+      }
+    }
     const supabase = createServiceClient()
 
     // Get user email
@@ -367,18 +383,16 @@ export const sendCompletionEmail = inngest.createFunction(
       return { success: false, reason: "No email found" }
     }
 
-    // TODO: Integrate with email service (Resend, SendGrid, etc.)
-    // For now, just log that we would send an email
+    // Send email using Resend
     await step.run("send-email", async () => {
-      console.log(`Would send completion email to ${userEmail} for sermon: ${sermonTitle}`)
-      // Example with Resend:
-      // await resend.emails.send({
-      //   from: 'SermonForge <notifications@sermonforge.app>',
-      //   to: userEmail,
-      //   subject: `Your sermon "${sermonTitle}" is ready!`,
-      //   html: `<p>Great news! Your sermon has been processed and all content is ready.</p>
-      //          <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/sermons/${sermonId}">View your sermon</a></p>`,
-      // })
+      const { sendSermonCompleteEmail } = await import("@/lib/email/send")
+      await sendSermonCompleteEmail({
+        to: userEmail,
+        sermonId,
+        sermonTitle,
+        contentGenerated,
+      })
+      console.log(`Sent completion email to ${userEmail} for sermon: ${sermonTitle}`)
     })
 
     return { success: true, email: userEmail }

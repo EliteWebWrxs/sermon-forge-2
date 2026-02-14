@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { createServiceClient } from "@/lib/supabase/service"
 import type { AnalyticsEventType, ContentType } from "@/types/database"
 
 interface TrackEventOptions {
@@ -6,14 +7,18 @@ interface TrackEventOptions {
   sermonId?: string
   eventType: AnalyticsEventType
   eventData?: Record<string, unknown>
+  useServiceClient?: boolean
 }
 
 /**
  * Track an analytics event
+ * @param useServiceClient - Use service client for background jobs (bypasses RLS)
  */
 export async function trackEvent(options: TrackEventOptions): Promise<void> {
   try {
-    const supabase = await createClient()
+    const supabase = options.useServiceClient
+      ? createServiceClient()
+      : await createClient()
 
     await supabase.from("analytics_events").insert({
       user_id: options.userId,
@@ -33,13 +38,15 @@ export async function trackEvent(options: TrackEventOptions): Promise<void> {
 export async function trackSermonCreated(
   userId: string,
   sermonId: string,
-  inputType: string
+  inputType: string,
+  useServiceClient = false
 ): Promise<void> {
   await trackEvent({
     userId,
     sermonId,
     eventType: "sermon_created",
     eventData: { input_type: inputType },
+    useServiceClient,
   })
 }
 
@@ -49,13 +56,15 @@ export async function trackSermonCreated(
 export async function trackContentGenerated(
   userId: string,
   sermonId: string,
-  contentType: ContentType
+  contentType: ContentType,
+  useServiceClient = false
 ): Promise<void> {
   await trackEvent({
     userId,
     sermonId,
     eventType: "content_generated",
     eventData: { content_type: contentType },
+    useServiceClient,
   })
 }
 
@@ -66,13 +75,15 @@ export async function trackContentExported(
   userId: string,
   sermonId: string,
   contentType: string,
-  format: string
+  format: string,
+  useServiceClient = false
 ): Promise<void> {
   await trackEvent({
     userId,
     sermonId,
     eventType: "content_exported",
     eventData: { content_type: contentType, format },
+    useServiceClient,
   })
 }
 
@@ -81,12 +92,14 @@ export async function trackContentExported(
  */
 export async function trackDevotionalViewed(
   userId: string,
-  sermonId: string
+  sermonId: string,
+  useServiceClient = false
 ): Promise<void> {
   await trackEvent({
     userId,
     sermonId,
     eventType: "devotional_viewed",
     eventData: {},
+    useServiceClient,
   })
 }

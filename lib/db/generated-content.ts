@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
+import { createServiceClient } from "@/lib/supabase/service"
 import type { ContentType } from "@/types"
+import type { SupabaseClient } from "@supabase/supabase-js"
 
 export async function getGeneratedContent(sermonId: string) {
   const supabase = await createClient()
@@ -37,16 +39,25 @@ export async function getGeneratedContentByType(
 /**
  * Create or update generated content for a sermon
  * Uses upsert to handle both creation and updates
+ * @param useServiceClient - Use service client for background jobs (bypasses RLS)
  */
 export async function saveGeneratedContent(
   sermonId: string,
   contentType: ContentType,
-  content: any
+  content: any,
+  useServiceClient = false
 ) {
-  const supabase = await createClient()
+  const supabase: SupabaseClient = useServiceClient
+    ? createServiceClient()
+    : await createClient()
 
-  // Check if content already exists
-  const existing = await getGeneratedContentByType(sermonId, contentType)
+  // Check if content already exists (use service client for this check too)
+  const { data: existing } = await supabase
+    .from("generated_content")
+    .select("id")
+    .eq("sermon_id", sermonId)
+    .eq("content_type", contentType)
+    .single()
 
   if (existing) {
     // Update existing content
