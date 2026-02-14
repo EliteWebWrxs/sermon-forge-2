@@ -1,47 +1,15 @@
 // This module is server-side only
-import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs"
-import path from "path"
-
-// Point to the worker file in node_modules
-if (typeof pdfjsLib.GlobalWorkerOptions !== 'undefined') {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = path.join(
-    process.cwd(),
-    'node_modules',
-    'pdfjs-dist',
-    'legacy',
-    'build',
-    'pdf.worker.mjs'
-  )
-}
+import { extractText } from "unpdf"
 
 export async function extractTextFromPDFBuffer(buffer: Buffer): Promise<string> {
   try {
-    // Convert Buffer to Uint8Array
+    // Convert Buffer to Uint8Array (which is accepted by unpdf)
     const uint8Array = new Uint8Array(buffer)
 
-    // Load the PDF document
-    const loadingTask = pdfjsLib.getDocument({
-      data: uint8Array,
-      verbosity: 0, // Suppress warnings
-    })
-    const pdf = await loadingTask.promise
+    const { text } = await extractText(uint8Array)
 
-    const textParts: string[] = []
-
-    // Extract text from each page
-    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-      const page = await pdf.getPage(pageNum)
-      const textContent = await page.getTextContent()
-
-      // Combine text items with spacing
-      const pageText = textContent.items
-        .map((item: any) => item.str)
-        .join(" ")
-
-      textParts.push(pageText)
-    }
-
-    const fullText = textParts.join("\n\n").trim()
+    // text is an array of strings (one per page), join them
+    const fullText = (Array.isArray(text) ? text.join("\n\n") : text).trim()
 
     if (!fullText || fullText.length === 0) {
       throw new Error("No text found in PDF")
