@@ -1,20 +1,55 @@
 // This module is server-side only
-import * as pdfParseMod from "pdf-parse"
+import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs"
+import path from "path"
 
-// pdf-parse is a CommonJS module, need to access it correctly
-const pdfParse = (pdfParseMod as any).default || pdfParseMod
+// Point to the worker file in node_modules
+if (typeof pdfjsLib.GlobalWorkerOptions !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = path.join(
+    process.cwd(),
+    'node_modules',
+    'pdfjs-dist',
+    'legacy',
+    'build',
+    'pdf.worker.mjs'
+  )
+}
 
 export async function extractTextFromPDFBuffer(buffer: Buffer): Promise<string> {
   try {
-    // Extract text from PDF
-    const data = await pdfParse(buffer)
+    // Convert Buffer to Uint8Array
+    const uint8Array = new Uint8Array(buffer)
 
-    if (!data.text || data.text.trim().length === 0) {
+    // Load the PDF document
+    const loadingTask = pdfjsLib.getDocument({
+      data: uint8Array,
+      verbosity: 0, // Suppress warnings
+    })
+    const pdf = await loadingTask.promise
+
+    const textParts: string[] = []
+
+    // Extract text from each page
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum)
+      const textContent = await page.getTextContent()
+
+      // Combine text items with spacing
+      const pageText = textContent.items
+        .map((item: any) => item.str)
+        .join(" ")
+
+      textParts.push(pageText)
+    }
+
+    const fullText = textParts.join("\n\n").trim()
+
+    if (!fullText || fullText.length === 0) {
       throw new Error("No text found in PDF")
     }
 
-    return data.text.trim()
+    return fullText
   } catch (error) {
+    console.error("PDF parsing error:", error)
     if (error instanceof Error) {
       throw new Error(`Failed to extract text from PDF: ${error.message}`)
     }

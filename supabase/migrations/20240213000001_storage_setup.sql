@@ -1,6 +1,7 @@
 -- Create storage bucket for sermon files
+-- Set public = true so external services (like AssemblyAI) can access files
 INSERT INTO storage.buckets (id, name, public)
-VALUES ('sermons', 'sermons', false);
+VALUES ('sermons', 'sermons', true);
 
 -- Allow authenticated users to upload files to their own folder
 CREATE POLICY "Users can upload sermon files"

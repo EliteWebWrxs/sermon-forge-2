@@ -1,6 +1,5 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import { startOfMonth } from "date-fns"
 import { requireAuth } from "@/lib/auth"
 import { getSermons } from "@/lib/db/sermons"
 import { getUserMetadata } from "@/lib/db/users"
@@ -8,6 +7,7 @@ import { Header } from "@/components/layout/header"
 import { Button } from "@/components/ui/button"
 import { SermonCard } from "@/components/sermons/sermon-card"
 import { EmptyState } from "@/components/sermons/empty-state"
+import { AnalyticsWidget } from "@/components/analytics/analytics-widget"
 
 export const metadata: Metadata = { title: "Dashboard" }
 
@@ -17,19 +17,6 @@ export default async function DashboardPage() {
     getSermons(user.id),
     getUserMetadata(user.id),
   ])
-
-  // Calculate stats
-  const totalSermons = sermons.length
-  const completedSermons = sermons.filter((s) => s.status === "complete").length
-  const thisMonth = sermons.filter(
-    (s) => new Date(s.created_at) >= startOfMonth(new Date())
-  ).length
-
-  const stats = [
-    { label: "Total Sermons", value: totalSermons.toString() },
-    { label: "Content Generated", value: completedSermons.toString() },
-    { label: "This Month", value: thisMonth.toString() },
-  ]
 
   return (
     <>
@@ -43,19 +30,9 @@ export default async function DashboardPage() {
         }
       />
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        {stats.map((stat) => (
-          <div
-            key={stat.label}
-            className="bg-white rounded-xl border border-slate-200 p-5"
-          >
-            <p className="text-sm text-slate-500">{stat.label}</p>
-            <p className="text-3xl font-semibold text-slate-900 mt-1">
-              {stat.value}
-            </p>
-          </div>
-        ))}
+      {/* Analytics Widget */}
+      <div className="mb-8">
+        <AnalyticsWidget />
       </div>
 
       {/* Recent sermons */}

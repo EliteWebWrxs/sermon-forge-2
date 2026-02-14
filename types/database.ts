@@ -27,6 +27,12 @@ export type SubscriptionPlan = "starter" | "growth" | "enterprise"
 
 export type SubscriptionStatus = "active" | "canceled" | "past_due"
 
+export type AnalyticsEventType =
+  | "sermon_created"
+  | "content_generated"
+  | "content_exported"
+  | "devotional_viewed"
+
 export interface Database {
   public: {
     Tables: {
@@ -35,6 +41,9 @@ export interface Database {
           user_id: string
           church_name: string | null
           church_logo_url: string | null
+          primary_color: string | null
+          secondary_color: string | null
+          font_preference: string | null
           sermons_processed_count: number
           created_at: string
         }
@@ -42,6 +51,9 @@ export interface Database {
           user_id: string
           church_name?: string | null
           church_logo_url?: string | null
+          primary_color?: string | null
+          secondary_color?: string | null
+          font_preference?: string | null
           sermons_processed_count?: number
           created_at?: string
         }
@@ -49,6 +61,9 @@ export interface Database {
           user_id?: string
           church_name?: string | null
           church_logo_url?: string | null
+          primary_color?: string | null
+          secondary_color?: string | null
+          font_preference?: string | null
           sermons_processed_count?: number
           created_at?: string
         }
@@ -158,6 +173,32 @@ export interface Database {
           updated_at?: string
         }
       }
+      analytics_events: {
+        Row: {
+          id: string
+          user_id: string
+          sermon_id: string | null
+          event_type: AnalyticsEventType
+          event_data: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          sermon_id?: string | null
+          event_type: AnalyticsEventType
+          event_data?: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          sermon_id?: string | null
+          event_type?: AnalyticsEventType
+          event_data?: Json
+          created_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never
@@ -176,11 +217,13 @@ export type UserMetadata = Database["public"]["Tables"]["users_metadata"]["Row"]
 export type Sermon = Database["public"]["Tables"]["sermons"]["Row"]
 export type GeneratedContent = Database["public"]["Tables"]["generated_content"]["Row"]
 export type Subscription = Database["public"]["Tables"]["subscriptions"]["Row"]
+export type AnalyticsEvent = Database["public"]["Tables"]["analytics_events"]["Row"]
 
 export type InsertUserMetadata = Database["public"]["Tables"]["users_metadata"]["Insert"]
 export type InsertSermon = Database["public"]["Tables"]["sermons"]["Insert"]
 export type InsertGeneratedContent = Database["public"]["Tables"]["generated_content"]["Insert"]
 export type InsertSubscription = Database["public"]["Tables"]["subscriptions"]["Insert"]
+export type InsertAnalyticsEvent = Database["public"]["Tables"]["analytics_events"]["Insert"]
 
 export type UpdateUserMetadata = Database["public"]["Tables"]["users_metadata"]["Update"]
 export type UpdateSermon = Database["public"]["Tables"]["sermons"]["Update"]

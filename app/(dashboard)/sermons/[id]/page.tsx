@@ -5,17 +5,11 @@ import { format } from "date-fns"
 import { requireAuth } from "@/lib/auth"
 import { getSermonById } from "@/lib/db/sermons"
 import { getGeneratedContent } from "@/lib/db/generated-content"
-import { Button } from "@/components/ui/button"
 import { StatusBadge } from "@/components/sermons/status-badge"
 import { TranscriptViewer } from "@/components/sermons/transcript-viewer"
-import { ContentTabs } from "@/components/sermons/content-tabs"
-import { GenerateContentButton } from "@/components/sermons/generate-content-button"
-import type {
-  SermonNotesContent,
-  DevotionalContent,
-  DiscussionGuideContent,
-  SocialMediaContent,
-} from "@/types"
+import { SermonContentTabs } from "@/components/sermons/sermon-content-tabs"
+import { SermonPageClient } from "@/components/sermons/sermon-page-client"
+import { ProcessingStatus } from "@/components/sermons/processing-status"
 
 export const metadata: Metadata = { title: "Sermon Details" }
 
@@ -37,6 +31,9 @@ export default async function SermonPage({ params }: Props) {
   const generatedContent = await getGeneratedContent(id)
   const hasContent = generatedContent.length > 0
   const formattedDate = format(new Date(sermon.sermon_date), "MMMM d, yyyy")
+
+  // Check if sermon has audio/video
+  const hasAudio = !!(sermon.audio_url || sermon.video_url || sermon.youtube_url)
 
   return (
     <>
@@ -60,18 +57,21 @@ export default async function SermonPage({ params }: Props) {
               <StatusBadge status={sermon.status} />
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <Link href={`/sermons/${id}/edit`}>
-              <Button variant="secondary">Edit Sermon</Button>
-            </Link>
-            <GenerateContentButton sermonId={id} hasContent={hasContent} />
-          </div>
+          <SermonPageClient
+            sermonId={id}
+            hasContent={hasContent}
+            hasTranscript={!!sermon.transcript}
+            hasAudio={hasAudio}
+          />
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Processing Status */}
+      <ProcessingStatus sermonId={id} initialStatus={sermon.status} />
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column - Transcript */}
-        <div className="lg:col-span-1">
+        <div className="lg:col-span-4">
           {sermon.transcript ? (
             <TranscriptViewer transcript={sermon.transcript} />
           ) : (
@@ -108,8 +108,13 @@ export default async function SermonPage({ params }: Props) {
         </div>
 
         {/* Right Column - Generated Content */}
-        <div className="lg:col-span-2">
-          <ContentTabs generatedContent={generatedContent} />
+        <div className="lg:col-span-8">
+          <SermonContentTabs
+            sermonId={id}
+            sermonTitle={sermon.title}
+            generatedContent={generatedContent}
+            hasTranscript={!!sermon.transcript}
+          />
         </div>
       </div>
     </>

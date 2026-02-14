@@ -50,7 +50,11 @@ export function FileUpload({
   const handleFile = (file: File) => {
     const maxSize = maxSizeMB * 1024 * 1024
     if (file.size > maxSize) {
-      alert(`File size must be less than ${maxSizeMB}MB`)
+      const fileSizeMB = Math.round(file.size / 1024 / 1024 * 100) / 100
+      alert(
+        `File size (${fileSizeMB}MB) exceeds the maximum allowed size of ${maxSizeMB}MB.\n\n` +
+        `Please use a smaller file or compress your video/audio before uploading.`
+      )
       return
     }
 

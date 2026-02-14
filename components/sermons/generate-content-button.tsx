@@ -3,7 +3,6 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { triggerContentGeneration } from "@/app/(dashboard)/sermons/[id]/actions"
 
 interface GenerateContentButtonProps {
   sermonId: string
@@ -16,29 +15,50 @@ export function GenerateContentButton({
 }: GenerateContentButtonProps) {
   const router = useRouter()
   const [isGenerating, setIsGenerating] = useState(false)
+  const [progress, setProgress] = useState<string>("")
 
   async function handleGenerate() {
     setIsGenerating(true)
+    setProgress("Generating all content...")
 
     try {
-      const result = await triggerContentGeneration(sermonId)
+      const response = await fetch(`/api/sermons/${sermonId}/generate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          content_type: "all", // Generate all content types
+        }),
+      })
 
-      if (result.success) {
-        router.refresh()
-      } else {
-        alert(result.error || "Failed to generate content")
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to generate content")
       }
+
+      setProgress("Content generated successfully!")
+
+      // Refresh the page to show new content
+      router.refresh()
     } catch (error) {
       console.error("Generation error:", error)
-      alert("Failed to generate content")
+      alert(error instanceof Error ? error.message : "Failed to generate content")
     } finally {
       setIsGenerating(false)
+      setProgress("")
     }
   }
 
   return (
-    <Button onClick={handleGenerate} loading={isGenerating}>
-      {hasContent ? "Regenerate Content" : "Generate Content"}
-    </Button>
+    <div className="flex flex-col items-end gap-2">
+      <Button onClick={handleGenerate} loading={isGenerating} disabled={isGenerating}>
+        {isGenerating ? "Generating..." : hasContent ? "Regenerate All" : "Generate All Content"}
+      </Button>
+      {progress && (
+        <p className="text-xs text-slate-500">{progress}</p>
+      )}
+    </div>
   )
 }

@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable react/no-unescaped-entities */
 "use client"
 
 import { useState } from "react"
@@ -31,10 +30,9 @@ interface SermonUploadFormProps {
 export function SermonUploadForm({ userId }: SermonUploadFormProps) {
   const router = useRouter()
   const [ uploadMethod, setUploadMethod ] = useState<
-    "file" | "pdf" | "youtube" | "text"
+    "file" | "pdf" | "text"
   >("file")
   const [ selectedFile, setSelectedFile ] = useState<File | null>(null)
-  const [ youtubeUrl, setYoutubeUrl ] = useState("")
   const [ pastedText, setPastedText ] = useState("")
   const [ uploading, setUploading ] = useState(false)
   const [ uploadProgress, setUploadProgress ] = useState(0)
@@ -50,12 +48,6 @@ export function SermonUploadForm({ userId }: SermonUploadFormProps) {
       sermon_date: new Date().toISOString().split("T")[ 0 ],
     },
   })
-
-  const validateYouTubeUrl = (url: string): boolean => {
-    const regex =
-      /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/(watch\?v=|embed\/|v\/)?[\w-]+/
-    return regex.test(url)
-  }
 
   const onSubmit = async (data: UploadFormValues) => {
     setError(null)
@@ -131,20 +123,6 @@ export function SermonUploadForm({ userId }: SermonUploadFormProps) {
         transcript = extractedText
 
         setUploadProgress(100)
-      } else if (uploadMethod === "youtube") {
-        if (!youtubeUrl) {
-          setError("Please enter a YouTube URL")
-          setUploading(false)
-          return
-        }
-
-        if (!validateYouTubeUrl(youtubeUrl)) {
-          setError("Please enter a valid YouTube URL")
-          setUploading(false)
-          return
-        }
-
-        input_type = "youtube"
       } else if (uploadMethod === "text") {
         if (!pastedText || pastedText.length < 500) {
           setError("Please paste at least 500 characters of text")
@@ -171,13 +149,20 @@ export function SermonUploadForm({ userId }: SermonUploadFormProps) {
         audio_url: input_type === "audio" ? fileUrl : undefined,
         video_url: input_type === "video" ? fileUrl : undefined,
         pdf_url: input_type === "pdf" ? fileUrl : undefined,
-        youtube_url: input_type === "youtube" ? youtubeUrl : undefined,
         transcript,
       })
 
-      router.push(`/sermons/${result.id}`)
+      // Trigger transcription for audio/video files (don't wait for it)
+      if (input_type === "audio" || input_type === "video") {
+        fetch(`/api/sermons/${result.id}/transcribe`, {
+          method: "POST",
+        }).catch((error) => {
+          console.error("Failed to start transcription:", error)
+          // Don't block the redirect if transcription fails to start
+        })
+      }
 
-      // Redirect happens in createSermonAction
+      router.push(`/sermons/${result.id}`)
     } catch (err) {
       console.error("Upload error:", err)
       setError(
@@ -221,22 +206,24 @@ export function SermonUploadForm({ userId }: SermonUploadFormProps) {
         </h2>
 
         <Tabs value={ uploadMethod } onValueChange={ (v) => setUploadMethod(v as any) }>
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="file">Audio/Video</TabsTrigger>
             <TabsTrigger value="pdf">PDF</TabsTrigger>
-            <TabsTrigger value="youtube">YouTube</TabsTrigger>
             <TabsTrigger value="text">Paste Text</TabsTrigger>
           </TabsList>
 
           <TabsContent value="file">
             <FileUpload
               accept=".mp3,.mp4,.m4a,.wav,.aac,.mov,.avi,.mkv,.webm"
-              maxSizeMB={ 500 }
+              maxSizeMB={ 100 }
               onFileSelect={ setSelectedFile }
               disabled={ uploading }
             />
             <p className="text-xs text-slate-500 mt-2">
               Supported formats: MP3, MP4, M4A, WAV, AAC, MOV, AVI, MKV, WEBM
+            </p>
+            <p className="text-xs text-amber-600 mt-1">
+              Note: Files larger than 50MB may require a Supabase Pro plan. Consider compressing large videos before uploading.
             </p>
           </TabsContent>
 
@@ -251,24 +238,6 @@ export function SermonUploadForm({ userId }: SermonUploadFormProps) {
               Upload a PDF of your sermon notes or manuscript. Text will be
               extracted automatically.
             </p>
-          </TabsContent>
-
-          <TabsContent value="youtube">
-            <div className="space-y-2">
-              <Label htmlFor="youtube_url">YouTube URL</Label>
-              <input
-                id="youtube_url"
-                type="url"
-                value={ youtubeUrl }
-                onChange={ (e) => setYoutubeUrl(e.target.value) }
-                placeholder="https://www.youtube.com/watch?v=..."
-                disabled={ uploading }
-                className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
-              />
-              <p className="text-xs text-slate-500">
-                We'll fetch the transcript from YouTube automatically
-              </p>
-            </div>
           </TabsContent>
 
           <TabsContent value="text">

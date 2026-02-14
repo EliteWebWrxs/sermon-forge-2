@@ -1,6 +1,17 @@
 import Link from "next/link"
+import { redirect } from "next/navigation"
 
-export default function LandingPage() {
+interface Props {
+  searchParams: Promise<{ code?: string }>
+}
+
+export default async function LandingPage({ searchParams }: Props) {
+  const { code } = await searchParams
+
+  // If there's an auth code, redirect to the callback handler
+  if (code) {
+    redirect(`/auth/callback?code=${code}`)
+  }
   return (
     <div className="min-h-screen bg-white">
       {/* Nav */}
